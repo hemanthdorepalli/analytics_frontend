@@ -1,29 +1,24 @@
-"use client";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setSession } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { Member } from "@/lib/types";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
     const init = async () => {
       try {
-        // Get tokens from URL (passed by Google OAuth callback)
         const accessToken = searchParams.get("access");
         const refreshToken = searchParams.get("refresh");
 
-        // If tokens in URL, store them in cookies via backend
         if (accessToken && refreshToken) {
-          // Store in localStorage as backup auth
           localStorage.setItem("access_token", accessToken);
           localStorage.setItem("refresh_token", refreshToken);
         }
 
-        // Now fetch org and role
         const [orgRes, membersRes, profileRes] = await Promise.all([
           api.get("/organizations/"),
           api.get<Member[]>("/organizations/members/"),
@@ -52,5 +47,17 @@ export default function AuthCallbackPage() {
         <p className="text-gray-500 text-sm">Completing sign in...</p>
       </div>
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"/>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }
