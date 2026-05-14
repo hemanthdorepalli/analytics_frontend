@@ -1,42 +1,49 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { setSession, clearSession } from "@/lib/auth";
+import { useRouter, useSearchParams } from "next/navigation";
+import { setSession } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { Member } from "@/lib/types";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const init = async () => {
       try {
-        // Cookies already set by Django backend after Google auth.
-        // Fetch profile and org first (these don't need X-Organization-ID).
-        const [profileRes, orgRes] = await Promise.all([
-          api.get("/auth/profile/"),
+        // Get tokens from URL (passed by Google OAuth callback)
+        const accessToken = searchParams.get("access");
+        const refreshToken = searchParams.get("refresh");
+
+        // If tokens in URL, store them in cookies via backend
+        if (accessToken && refreshToken) {
+          // Store in localStorage as backup auth
+          localStorage.setItem("access_token", accessToken);
+          localStorage.setItem("refresh_token", refreshToken);
+        }
+
+        // Now fetch org and role
+        const [orgRes, membersRes, profileRes] = await Promise.all([
           api.get("/organizations/"),
+          api.get<Member[]>("/organizations/members/"),
+          api.get("/auth/profile/"),
         ]);
+
         const org = orgRes.data;
         const myEmail = profileRes.data.email;
-
-        // Set session early so the header is present for the members request.
-        if (org?.id) setSession(org.id, "owner");
-        else throw new Error("No organization found");
-
-        // Now fetch members — X-Organization-ID header is set via setSession above.
-        const membersRes = await api.get<Member[]>("/organizations/members/");
         const me = membersRes.data.find((m: Member) => m.user_email === myEmail);
-        if (me?.role) setSession(org.id, me.role);
+
+        if (org?.id && me?.role) setSession(org.id, me.role);
+        else if (org?.id) setSession(org.id, "owner");
 
         router.replace("/dashboard");
       } catch {
-        clearSession();
         router.replace("/login");
       }
     };
     init();
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

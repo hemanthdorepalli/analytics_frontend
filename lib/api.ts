@@ -8,12 +8,15 @@ export const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Read org_id fresh from localStorage on EVERY request
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const orgId = localStorage.getItem("org_id");
-    if (orgId) {
-      config.headers["X-Organization-ID"] = orgId;
+    if (orgId) config.headers["X-Organization-ID"] = orgId;
+
+    // Fallback: use token from localStorage if cookies not working (cross-domain)
+    const accessToken = localStorage.getItem("access_token");
+    if (accessToken && !config.headers["Authorization"]) {
+      config.headers["Authorization"] = `Bearer ${accessToken}`;
     }
   }
   return config;
@@ -37,6 +40,8 @@ api.interceptors.response.use(
         if (typeof window !== "undefined") {
           localStorage.removeItem("org_id");
           localStorage.removeItem("role");
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
           window.location.href = "/login";
         }
       }
