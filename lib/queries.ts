@@ -83,7 +83,7 @@ export const useEvents = () => {
   return useQuery({
     queryKey: ["events"],
     queryFn: async () => { const { data } = await api.get<Event[]>("/ingestion/events/stream/"); return data; },
-    refetchInterval: 30000,          // poll every 30s instead of 5s
+    refetchInterval: 15000,           // poll every 15s for near-real-time updates
     refetchIntervalInBackground: false, // pause polling when tab is not visible
     enabled: !!orgId,
   });
